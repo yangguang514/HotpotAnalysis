@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrendRadar 热点监控</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo">📡</span>
+    <div>
+      <h1>TrendRadar 热点监控</h1>
+      <p class="subtitle">关注领域热榜 · 自动监控 · 整周汇总</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="badge-backend" class="badge" title="存储后端">…</span>
+    <span id="badge-auto" class="badge" title="自动监控状态">…</span>
+    <span id="badge-lastcrawl" class="badge" title="最近一次抓取">…</span>
+    <button id="btn-token" class="btn btn-ghost" type="button">🔑 令牌</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="keywords" type="button">🔍 监控关键词</button>
+  <button class="tab" data-tab="schedule" type="button">⏰ 监控设置</button>
+  <button class="tab" data-tab="report" type="button">📊 数据报告</button>
+</nav>
+
+<main>
+
+<!-- ═══════════════ Tab 1：监控关键词 ═══════════════ -->
+<section id="tab-keywords" class="tab-panel active">
+  <div class="panel-head">
+    <div>
+      <h2>关注关键词</h2>
+      <p class="hint">每个词组内的多行是「或」的关系，任一行命中即算关注；标题需避开「全局排除词」。</p>
+    </div>
+    <div class="panel-actions">
+      <button id="btn-add-group" class="btn" type="button">＋ 添加词组</button>
+      <button id="btn-save-keywords" class="btn btn-primary" type="button">保存词表</button>
+    </div>
+  </div>
+
+  <div id="groups-editor" class="groups-editor"></div>
+
+  <div class="card">
+    <h3>全局排除词 <span class="hint-inline">每行一个，命中任一词的新闻不会出现</span></h3>
+    <textarea id="global-filters" class="textarea mono" rows="2" placeholder="例如：震惊"></textarea>
+  </div>
+
+  <details class="card">
+    <summary>高级语法说明 &amp; 原始文本模式</summary>
+    <div class="syntax-help">
+      <table>
+        <tr><td><code>熊猫</code></td><td>普通词，标题包含即命中</td></tr>
+        <tr><td><code>/词A|词B|词C/</code></td><td>正则匹配多个词</td></tr>
+        <tr><td><code>/词A|词B/ =&gt; 显示名</code></td><td>自定义词组在报告里的名字</td></tr>
+        <tr><td><code>+必须词</code></td><td>该行必须同时包含（如 <code>+熊猫</code>）</td></tr>
+        <tr><td><code>!排除词</code></td><td>组内排除（如 <code>!猫</code>）</td></tr>
+        <tr><td><code>@5</code></td><td>该词组在报告中最多显示 5 条</td></tr>
+      </table>
+    </div>
+    <div class="panel-actions">
+      <button id="btn-toggle-raw" class="btn btn-ghost" type="button">切换到原始文本编辑</button>
+    </div>
+    <textarea id="raw-editor" class="textarea mono" rows="16" hidden></textarea>
+  </details>
+</section>
+
+<!-- ═══════════════ Tab 2：监控设置 ═══════════════ -->
+<section id="tab-schedule" class="tab-panel">
+  <div class="panel-head">
+    <div>
+      <h2>监控时间与开关</h2>
+      <p class="hint">自动监控开启后，系统会在下方设定的时刻自动抓取；关闭则只在你手动点击「立即抓取」时运行。</p>
+    </div>
+    <div class="panel-actions">
+      <button id="btn-save-schedule" class="btn btn-primary" type="button">保存设置</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row-between">
+      <div>
+        <h3>自动监控</h3>
+        <p class="hint-inline">总开关。开启后按「监控星期 + 监控时间」自动抓取</p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="schedule-enabled">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>监控星期</h3>
+    <div id="weekday-chips" class="chips"></div>
+  </div>
+
+  <div class="card">
+    <h3>监控时间 <span class="hint-inline">每天在这些时刻自动抓取</span></h3>
+    <div id="time-chips" class="chips"></div>
+    <div class="row gap">
+      <input type="time" id="new-time" class="input" value="08:00">
+      <button id="btn-add-time" class="btn" type="button">添加时间</button>
+      <span class="hint-inline">快捷：</span>
+      <button class="btn btn-ghost btn-quick-time" type="button" data-time="08:00">08:00</button>
+      <button class="btn btn-ghost btn-quick-time" type="button" data-time="12:00">12:00</button>
+      <button class="btn btn-ghost btn-quick-time" type="button" data-time="20:00">20:00</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grid-2">
+      <div>
+        <h3>时区</h3>
+        <select id="timezone" class="input">
+          <option value="Asia/Shanghai">Asia/Shanghai（北京时间）</option>
+          <option value="Asia/Tokyo">Asia/Tokyo（东京时间）</option>
+          <option value="Asia/Singapore">Asia/Singapore（新加坡时间）</option>
+          <option value="Europe/London">Europe/London（伦敦时间）</option>
+          <option value="America/New_York">America/New_York（美东时间）</option>
+          <option value="UTC">UTC</option>
+        </select>
+      </div>
+      <div>
+        <h3>报告统计范围（天）</h3>
+        <input type="number" id="range-days" class="input" min="1" max="90" value="7">
+        <p class="hint-inline">整周汇总 = 7；整月 = 30。报告会合并这些天的数据</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row-between">
+      <h3>监控平台 <span id="platform-count" class="hint-inline"></span></h3>
+      <div class="row gap">
+        <input id="platform-search" class="input input-sm" type="search" placeholder="搜索平台…">
+        <button id="btn-select-all" class="btn btn-ghost btn-sm" type="button">全选</button>
+        <button id="btn-select-none" class="btn btn-ghost btn-sm" type="button">全不选</button>
+      </div>
+    </div>
+    <div id="platform-grid" class="platform-grid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════ Tab 3：数据报告 ═══════════════ -->
+<section id="tab-report" class="tab-panel">
+  <div class="panel-head">
+    <div>
+      <h2>数据报告</h2>
+      <p class="hint">按关注词组分组的命中新闻；同一新闻多次上榜会累计次数并显示上榜时间跨度。</p>
+    </div>
+    <div class="panel-actions">
+      <button id="btn-crawl" class="btn" type="button">⚡ 立即抓取</button>
+      <button id="btn-refresh-report" class="btn btn-primary" type="button">🔄 刷新报告</button>
+    </div>
+  </div>
+
+  <div id="report-summary" class="summary-cards"></div>
+  <div id="report-body"></div>
+</section>
+
+</main>
+
+<!-- 令牌弹窗 -->
+<div id="token-modal" class="modal-mask" hidden>
+  <div class="modal">
+    <h3>访问令牌</h3>
+    <p class="hint">该部署设置了访问保护，请输入管理员令牌（ADMIN_TOKEN）。令牌只保存在本浏览器的 localStorage 中。</p>
+    <input id="token-input" class="input" type="password" placeholder="ADMIN_TOKEN">
+    <div class="row-end gap">
+      <button id="btn-token-cancel" class="btn btn-ghost" type="button">取消</button>
+      <button id="btn-token-save" class="btn btn-primary" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
