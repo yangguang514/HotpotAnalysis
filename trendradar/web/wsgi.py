@@ -30,7 +30,6 @@ from typing import Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from trendradar.web.pipeline import (
-    build_report,
     evaluate_schedule,
     get_report_cached,
     run_crawl,

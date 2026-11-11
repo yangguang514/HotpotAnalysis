@@ -49,9 +49,11 @@
 | `trendradar/web/wsgi.py` | WSGI 应用：REST API 路由、鉴权、静态资源、安全防护 |
 | `trendradar/web/__main__.py` | 本地开发服务器（`python -m trendradar.web`） |
 | `app.py` | Vercel 部署入口（暴露 WSGI `app`） |
-| `public/index.html` `style.css` `app.js` | 前端配置仪表盘（零依赖原生 JS） |
+| `frontend/` | React + TypeScript + Vite 前端源码与构建配置 |
+| `public/` | Vite 生成的静态仪表盘资源，由 Vercel CDN 服务 |
 | `vercel.json` | 函数时长、Cron 配置 |
 | `requirements.txt` | Vercel 依赖清单（仅 `requests` + `PyYAML` + `pytz`） |
+| `package.json` `frontend/package.json` | 前端 workspace 与 React/Vite 依赖，供 Vercel 执行生产构建 |
 | `.vercelignore` | 排除 `pyproject.toml`/`uv.lock`（避免 Vercel 装重依赖）与本地资产 |
 | `.python-version` | 锁定 Python 3.12 |
 | `.github/workflows/trendradar-cron.yml` | 外部定时触发器（补足 Hobby 计划 Cron 每天一次的限制） |
@@ -127,10 +129,10 @@ ConfigStore / DataStore
 
 ### 2.4 前端仪表盘（`public/`）
 
-三个标签页，零依赖原生 JS（无构建步骤）：
+三个标签页使用 React + TypeScript 实现，按功能组件拆分，并由 Vite 构建为静态资源：
 
 **① 关注关键词**
-- 词组可视化编辑：每个词组一张卡片，支持改名、编辑词行、删除、拖动排序
+- 词组可视化编辑：每个词组一张卡片，支持改名、编辑词行与删除
 - 词行语法与 `frequency_words.txt` 完全一致：`普通词`、`/正则/ => 显示名`、`!排除词`、`+必须词`、`@显示条数`
 - 全局过滤词单独管理
 - 保存前在浏览器端做基础校验，服务端再用 `validate_keywords()`（调用项目自己的解析器）做权威校验——**服务端校验不通过会拒绝保存并返回具体错误**，保证页面配置与 CLI 词表永远等价
@@ -209,12 +211,12 @@ ConfigStore / DataStore
 | `vercel.json` → `functions.app.py.maxDuration: 300` | Fluid compute 下 Hobby 计划默认即 300s；抓取管线时限设为 200s 留余量 |
 | `vercel.json` → `crons` | 注册每日一次的 Cron（Hobby 限制） |
 | `.python-version` | 锁定 Python 3.12（项目要求 ≥3.12） |
-| `public/` | Vercel 约定静态资源目录，由 CDN 直接服务，不消耗函数调用 |
+| `public/` | Vite 生成的静态资源目录，由 Vercel CDN 直接服务（不提交构建产物） |
 | 延迟导入改造（`trendradar/__init__.py`） | 原包初始化急切导入 `AppContext` → 连带拉入 `trendradar.ai` → litellm。改用 PEP 562 模块 `__getattr__` 延迟加载后，Web 端导入链不再拖累任何重依赖（已验证 litellm/boto3/feedparser/fastmcp 均不加载），CLI 的 `from trendradar import AppContext` 用法保持兼容 |
 
 ### 4.2 部署步骤
 
-1. **推送代码**到 GitHub 仓库（`git push`）。
+1. **推送代码**到 GitHub 仓库（`git push`）。Vercel 执行 `npm run build` 生成 `public/` 静态资源，再由 CDN 服务页面；Python API 入口和运行时依赖保持不变。
 2. **创建 Vercel 项目**：vercel.com → Add New → Project → 导入该仓库。Framework Preset 选 **Other**（无框架，纯 Python + 静态文件）。
 3. **创建 KV 存储**（必须，否则 Serverless 环境数据不持久）：
    - Vercel 控制台 → Storage → Create → **Upstash Redis**（或 KV）→ 关联到刚创建的项目
@@ -251,17 +253,18 @@ Hobby 计划的 Vercel 内置 Cron **每天只能运行一次**。本项目的�
 ### 4.4 本地开发
 
 ```bash
-# 安装依赖（复用已有 .venv 或新建）
+# 安装 Python 依赖（复用已有 .venv 或新建）
 uv sync                          # 或 pip install requests PyYAML pytz
 
-# 启动开发服务器（默认端口 8787，文件后端，数据落 web_data/）
+# 启动 Python API（默认端口 8765，文件后端，数据落 web_data/）
 python -m trendradar.web
 
-# 指定端口
-PORT=8765 python -m trendradar.web
+# 在另一个终端启动 React 开发服务器（默认端口 5173）
+npm install
+npm run dev
 ```
 
-打开 `http://127.0.0.1:8787` 即为仪表盘。文件后端与 KV 后端接口一致，本地改的配置想带到线上，可在页面导出配置 JSON，部署后导入。
+开发时访问 Vite 地址 `http://localhost:5173`。Vite 会将 `/api/*` 请求代理到 `http://127.0.0.1:8765`；Python API 和生产环境 API 契约保持一致。若希望用 Python 静态服务预览生产页面，先执行 `npm run build`，再访问 `http://127.0.0.1:8765`。
 
 ---
 
@@ -275,7 +278,7 @@ PORT=8765 python -m trendradar.web
 | **手动抓取** | 报告页「立即抓取」按钮，随时获取最新热榜 |
 | **整周/整日报告** | `weekly` 模式跨天合并（默认 7 天）：同一新闻在周内多次上榜会显示累计次数与上榜时间线，安静日不出现空报告；`daily` 模式只看当天 |
 | **远程持久化** | 数据存 Vercel KV（Upstash Redis），函数冷启动/重新部署不丢失；历史数据按天一个键，报告按需聚合 |
-| **零依赖前端** | 原生 HTML/CSS/JS，无构建步骤，Vercel CDN 直接服务，秒开 |
+| **独立前端构建** | React + TypeScript + Vite；构建产物由 Vercel CDN 直接服务，运行时继续调用同域 Python API |
 | **CLI 不受影响** | `python -m trendradar` 原有用法、配置、输出完全不变，本地/服务器两条路径可并行使用 |
 | **安全** | API 令牌鉴权、目录穿越防护、抓取域名安全校验、槽位原子认领 |
 
@@ -289,6 +292,8 @@ python tests/test_web_kv.py          # KV 后端冒烟测试（mock Upstash REST
 python tests/test_web_wsgi.py        # 20 项 WSGI 层测试（路由/鉴权/穿越防护/CORS）
 python -m unittest tests.test_frequency -v   # 原词表测试（验证重构无回归）
 python -m trendradar --doctor        # CLI 环境体检
+npm run build                        # 前端类型检查与 Vite 生产构建
+npm test                             # 前端词表原始文本往返测试
 ```
 
 已验证项：词表解析/匹配一致性、配置保存往返与校验拒绝、跨天合并语义（count 累加/时间线拼接/首末时间取舍）、定时槽位判定与补抓、KV 读写与键名 URL 安全、API 鉴权（ADMIN_TOKEN 三传入方式 + CRON_SECRET 仅限 /api/cron + health 免鉴权）、路径穿越 404、静态资源服务、API 404 语义、CORS 预检。

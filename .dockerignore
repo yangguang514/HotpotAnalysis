@@ -24,8 +24,6 @@ Thumbs.db
 
 docker/.env
 
-_image/
-
 .github/
 
 *.log

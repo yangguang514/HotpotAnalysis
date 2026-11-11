@@ -26,7 +26,6 @@ import yaml
 from trendradar.core.loader import _load_webhook_config, _load_notification_config
 from trendradar.notification.batch import (
     truncate_to_bytes,
-    get_batch_header,
     get_max_batch_header_size,
     add_batch_headers,
 )
@@ -90,8 +89,7 @@ _BATCH_INTERVAL_DEFAULT = 3.0
 
 
 # ==================== 批次处理 ====================
-# truncate_to_bytes, get_batch_header, get_max_batch_header_size,
-# add_batch_headers 复用自 trendradar.notification.batch
+# 批次工具复用自 trendradar.notification.batch
 
 
 def _split_text_into_batches(text: str, max_bytes: int) -> List[str]:

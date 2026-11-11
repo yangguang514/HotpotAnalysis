@@ -407,7 +407,6 @@ class SystemManagementTools:
             >>> print(result['data']['any_update'])
         """
         import yaml
-        import requests
 
         def parse_version(version_str: str):
             """将版本号字符串解析为元组"""

@@ -10,6 +10,10 @@ venv/
 output/
 /index.html
 web_data/
+/node_modules/
+/frontend/node_modules/
+public/assets/
+public/index.html
 
 # 日志
 *.log

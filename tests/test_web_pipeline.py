@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from trendradar.core.frequency import load_frequency_words, matches_word_groups  # noqa: E402
 from trendradar.web.pipeline import (  # noqa: E402
-    _split_word_blocks,
     build_report,
     evaluate_schedule,
     keywords_to_text,

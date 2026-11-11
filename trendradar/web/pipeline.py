@@ -19,7 +19,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 
@@ -28,11 +28,10 @@ from trendradar.crawler.fetcher import DataFetcher
 from trendradar.utils.time import get_configured_time
 from trendradar.web.catalog import (
     DEFAULT_PLATFORM_IDS,
-    PLATFORM_CATALOG,
     get_platform_domain,
     get_platform_name,
 )
-from trendradar.web.stores import ConfigStore, DataStore, _utcnow_iso
+from trendradar.web.stores import ConfigStore, DataStore
 
 # 抓取并发数（Vercel 函数内 I/O 密集型，6 并发兼顾速度与对方服务压力）
 CRAWL_CONCURRENCY = 6

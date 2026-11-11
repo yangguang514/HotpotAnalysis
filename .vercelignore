@@ -9,6 +9,8 @@ uv.lock
 # ── 本地开发资产 ──
 .venv/
 venv/
+node_modules/
+frontend/node_modules/
 __pycache__/
 *.pyc
 web_data/

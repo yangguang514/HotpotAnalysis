@@ -25,7 +25,7 @@ import os
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import requests
 

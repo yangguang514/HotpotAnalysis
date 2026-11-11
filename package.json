@@ -1,0 +1,12 @@
+{
+  "name": "trendradar-web",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @trendradar/web",
+    "dev": "npm run dev --workspace @trendradar/web",
+    "test": "npm run test --workspace @trendradar/web"
+  }
+}
