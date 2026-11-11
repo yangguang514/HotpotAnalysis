@@ -1,0 +1,9 @@
+# Vercel 部署依赖（仅 Web 端运行时需要的包）
+#
+# 注意：本仓库同时存在 pyproject.toml + uv.lock（本地 CLI 开发用），
+# Vercel 的 uv 安装器会优先读取 pyproject.toml（含 litellm/boto3 等重依赖）。
+# 因此 .vercelignore 中排除了 pyproject.toml 与 uv.lock，
+# 让 Vercel 只以本文件作为依赖清单，保持函数包体积与冷启动速度。
+requests==2.33.0
+PyYAML==6.0.3
+pytz==2026.1

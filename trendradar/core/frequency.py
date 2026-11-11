@@ -93,49 +93,21 @@ def _word_matches(word_config: Union[str, Dict], title_lower: str) -> bool:
         return word_config["word"].lower() in title_lower
 
 
-def load_frequency_words(
-    frequency_file: Optional[str] = None,
+def parse_frequency_words(
+    content: str,
 ) -> Tuple[List[Dict], List[Dict], List[Dict]]:
     """
-    加载频率词配置
+    从文本内容解析频率词规则（不读文件，供 Web 端复用）
 
-    配置文件格式说明：
-    - 每个词组由空行分隔
-    - [GLOBAL_FILTER] 区域定义全局过滤词
-    - [WORD_GROUPS] 区域定义词组（默认）
-
-    词组语法：
-    - 普通词：直接写入，任意匹配即可
-    - +词：必须词，所有必须词都要匹配
-    - !词：过滤词，匹配则排除
-    - @数字：该词组最多显示的条数
+    与 load_frequency_words 使用完全相同的解析逻辑，
+    区别仅在于输入是字符串内容而非文件路径。
 
     Args:
-        frequency_file: 频率词配置文件路径，默认从环境变量 FREQUENCY_WORDS_PATH 获取或使用 config/frequency_words.txt，短文件名从 config/custom/keyword/ 查找
+        content: 频率词配置文本内容（frequency_words.txt 的完整内容）
 
     Returns:
         (词组列表, 词组内过滤词, 全局过滤词)
-
-    Raises:
-        FileNotFoundError: 频率词文件不存在
     """
-    if frequency_file is None:
-        frequency_file = os.environ.get(
-            "FREQUENCY_WORDS_PATH", "config/frequency_words.txt"
-        )
-
-    frequency_path = Path(frequency_file)
-    if not frequency_path.exists():
-        # 尝试作为短文件名，拼接 config/custom/keyword/ 前缀
-        custom_path = Path("config/custom/keyword") / frequency_file
-        if custom_path.exists():
-            frequency_path = custom_path
-        else:
-            raise FileNotFoundError(f"频率词文件 {frequency_file} 不存在")
-
-    with open(frequency_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
     word_groups = [group.strip() for group in content.split("\n\n") if group.strip()]
 
     processed_groups = []
@@ -241,6 +213,52 @@ def load_frequency_words(
             )
 
     return processed_groups, filter_words, global_filters
+
+
+def load_frequency_words(
+    frequency_file: Optional[str] = None,
+) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    """
+    加载频率词配置
+
+    配置文件格式说明：
+    - 每个词组由空行分隔
+    - [GLOBAL_FILTER] 区域定义全局过滤词
+    - [WORD_GROUPS] 区域定义词组（默认）
+
+    词组语法：
+    - 普通词：直接写入，任意匹配即可
+    - +词：必须词，所有必须词都要匹配
+    - !词：过滤词，匹配则排除
+    - @数字：该词组最多显示的条数
+
+    Args:
+        frequency_file: 频率词配置文件路径，默认从环境变量 FREQUENCY_WORDS_PATH 获取或使用 config/frequency_words.txt，短文件名从 config/custom/keyword/ 查找
+
+    Returns:
+        (词组列表, 词组内过滤词, 全局过滤词)
+
+    Raises:
+        FileNotFoundError: 频率词文件不存在
+    """
+    if frequency_file is None:
+        frequency_file = os.environ.get(
+            "FREQUENCY_WORDS_PATH", "config/frequency_words.txt"
+        )
+
+    frequency_path = Path(frequency_file)
+    if not frequency_path.exists():
+        # 尝试作为短文件名，拼接 config/custom/keyword/ 前缀
+        custom_path = Path("config/custom/keyword") / frequency_file
+        if custom_path.exists():
+            frequency_path = custom_path
+        else:
+            raise FileNotFoundError(f"频率词文件 {frequency_file} 不存在")
+
+    with open(frequency_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    return parse_frequency_words(content)
 
 
 def matches_word_groups(

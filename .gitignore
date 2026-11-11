@@ -5,11 +5,11 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
-.python-version
 
-# TrendRadar 运行产物（报告、数据库、RSS 缓存）
+# TrendRadar 运行产物（报告、数据库、RSS 缓存、Web 端本地数据）
 output/
 index.html
+web_data/
 
 # 日志
 *.log

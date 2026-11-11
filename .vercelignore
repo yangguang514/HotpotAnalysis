@@ -1,0 +1,33 @@
+# Vercel 部署排除项
+# 目的：1) 让 Vercel 只以 requirements.txt 作为依赖清单（见其中注释）
+#       2) 缩减函数包体积（本地 CLI 资产、文档、测试、虚拟环境不上线）
+
+# ── 依赖清单冲突：排除后 Vercel 仅使用 requirements.txt ──
+pyproject.toml
+uv.lock
+
+# ── 本地开发资产 ──
+.venv/
+venv/
+__pycache__/
+*.pyc
+web_data/
+output/
+.git/
+.github/
+.workbuddy/
+
+# ── CLI / 文档资产（Web 端运行时不需要）──
+tests/
+docker/
+docs/
+_image/
+mcp_server/
+*.md
+version_configs
+version_mcp
+start-http.bat
+start-http.sh
+setup-windows.bat
+setup-windows-en.bat
+setup-mac.sh

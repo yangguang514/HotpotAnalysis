@@ -1,0 +1,41 @@
+# TrendRadar 定时抓取（外部调度器）
+#
+# 用途：按「监控时间」配置触发 Vercel 上的抓取。
+#   - Vercel Hobby 计划的内置 Cron 每天只能运行一次，
+#     需要一天内多次抓取时，用本 workflow 作为调度器（免费）。
+#   - Vercel Pro 计划可以改用 vercel.json 中的内置 Cron（每分钟级）。
+#
+# 所需仓库 Secrets（Settings → Secrets and variables → Actions）：
+#   TRENDRADAR_URL   = https://你的项目.vercel.app        （不带末尾斜杠）
+#   CRON_SECRET      = 与 Vercel 环境变量 CRON_SECRET 相同的值
+#
+# 说明：
+#   - GitHub Actions 的 cron 使用 UTC 时间；下面的 "*/15 * * * *" 表示每 15 分钟
+#     触发一次，具体是否抓取由服务端的「监控时间」配置决定（未到点则直接跳过）。
+#   - 想改为每 30 分钟：把 */15 改成 */30；每小时：改成 0 * * * *。
+#   - 仓库 60 天无活动时 GitHub 会暂停定时 workflow，属正常现象。
+
+name: TrendRadar 定时抓取
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # 允许在 Actions 页面手动触发
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 调用 /api/cron
+        run: |
+          response=$(curl -sS -w "\n%{http_code}" --max-time 300 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.TRENDRADAR_URL }}/api/cron")
+          body=$(echo "$response" | head -n -1)
+          code=$(echo "$response" | tail -n 1)
+          echo "HTTP $code"
+          echo "$body"
+          if [ "$code" != "200" ]; then
+            echo "::error::抓取触发失败 (HTTP $code)"
+            exit 1
+          fi
