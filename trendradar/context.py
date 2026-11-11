@@ -23,6 +23,7 @@ from trendradar.core import (
     load_frequency_words,
     matches_word_groups,
     read_all_today_titles,
+    read_range_titles,
     detect_latest_new_titles,
     count_word_frequency,
     Scheduler,
@@ -221,6 +222,20 @@ class AppContext:
     ) -> Tuple[Dict, Dict, Dict]:
         """读取当天所有标题"""
         return read_all_today_titles(self.get_storage_manager(), platform_ids, quiet=quiet)
+
+    def read_range_titles(
+        self,
+        days: int = 7,
+        platform_ids: Optional[List[str]] = None,
+        quiet: bool = False,
+    ) -> Tuple[Dict, Dict, Dict]:
+        """读取最近 N 天的所有标题（跨天合并）"""
+        return read_range_titles(
+            self.get_storage_manager(),
+            days=days,
+            current_platform_ids=platform_ids,
+            quiet=quiet,
+        )
 
     def detect_new_titles(
         self, platform_ids: Optional[List[str]] = None, quiet: bool = False

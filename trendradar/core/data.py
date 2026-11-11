@@ -9,7 +9,10 @@
 Author: TrendRadar Team
 """
 
+from datetime import timedelta
 from typing import Dict, List, Tuple, Optional
+
+from trendradar.utils.time import DEFAULT_TIMEZONE, get_configured_time
 
 
 def read_all_today_titles_from_storage(
@@ -106,6 +109,142 @@ def read_all_today_titles(
             print(f"[存储] 已从存储后端读取 {total_count} 条标题")
         else:
             print("[存储] 当天暂无数据")
+
+    return all_results, final_id_to_name, title_info
+
+
+def read_range_titles_from_storage(
+    storage_manager,
+    days: int = 7,
+    current_platform_ids: Optional[List[str]] = None,
+) -> Tuple[Dict, Dict, Dict]:
+    """
+    从存储后端读取最近 N 天的所有标题（跨天合并，SQLite 数据）
+
+    合并规则（按日期从早到晚遍历）：
+    - all_results: 同一标题取最新一天出现的排名与链接（当前状态）
+    - title_info.count: 跨天累加出现次数
+    - title_info.first_time: 取最早一次出现的时间（先到不覆盖）
+    - title_info.last_time: 取最晚一次出现的时间（后到覆盖）
+    - title_info.rank_timeline: 按时间顺序拼接各天的排名时间线
+
+    Args:
+        storage_manager: 存储管理器实例
+        days: 聚合天数（如 7 表示最近 7 天，含今天）
+        current_platform_ids: 当前监控的平台 ID 列表（用于过滤）
+
+    Returns:
+        Tuple[Dict, Dict, Dict]: (all_results, id_to_name, title_info)
+    """
+    all_results: Dict = {}
+    final_id_to_name: Dict = {}
+    title_info: Dict = {}
+
+    if days <= 0:
+        return all_results, final_id_to_name, title_info
+
+    try:
+        timezone = getattr(storage_manager, "timezone", None) or DEFAULT_TIMEZONE
+        today = get_configured_time(timezone)
+
+        # 从最早的一天遍历到今天，保证 first_time / last_time 语义正确
+        for offset in range(days - 1, -1, -1):
+            date_str = (today - timedelta(days=offset)).strftime("%Y-%m-%d")
+            news_data = storage_manager.get_today_all_data(date_str)
+
+            if not news_data or not news_data.items:
+                continue
+
+            for source_id, news_list in news_data.items.items():
+                # 按平台过滤
+                if current_platform_ids is not None and source_id not in current_platform_ids:
+                    continue
+
+                # 获取来源名称
+                source_name = news_data.id_to_name.get(source_id, source_id)
+                final_id_to_name[source_id] = source_name
+
+                if source_id not in all_results:
+                    all_results[source_id] = {}
+                    title_info[source_id] = {}
+
+                for item in news_list:
+                    title = item.title
+                    ranks = item.ranks or [item.rank]
+                    first_time = item.first_time or item.crawl_time
+                    last_time = item.last_time or item.crawl_time
+                    count = item.count
+                    rank_timeline = item.rank_timeline or []
+
+                    if title in all_results[source_id]:
+                        # 跨天合并：累计次数，保留最早首次时间，刷新最后时间
+                        prev_info = title_info[source_id][title]
+                        prev_info["count"] += count
+                        if first_time and not prev_info["first_time"]:
+                            prev_info["first_time"] = first_time
+                        if last_time:
+                            prev_info["last_time"] = last_time
+                        prev_info["rank_timeline"] = (
+                            prev_info.get("rank_timeline") or []
+                        ) + list(rank_timeline)
+                    else:
+                        title_info[source_id][title] = {
+                            "first_time": first_time,
+                            "last_time": last_time,
+                            "count": count,
+                            "ranks": ranks,
+                            "url": item.url or "",
+                            "mobileUrl": item.mobile_url or "",
+                            "rank_timeline": list(rank_timeline),
+                        }
+
+                    # 后遍历到的天数覆盖为最新状态（排名/链接以最新一天为准）
+                    all_results[source_id][title] = {
+                        "ranks": ranks,
+                        "url": item.url or "",
+                        "mobileUrl": item.mobile_url or "",
+                    }
+                    title_info[source_id][title]["ranks"] = ranks
+                    if item.url:
+                        title_info[source_id][title]["url"] = item.url
+                    if item.mobile_url:
+                        title_info[source_id][title]["mobileUrl"] = item.mobile_url
+
+        return all_results, final_id_to_name, title_info
+
+    except Exception as e:
+        print(f"[存储] 跨天读取数据失败: {e}")
+        return {}, {}, {}
+
+
+def read_range_titles(
+    storage_manager,
+    days: int = 7,
+    current_platform_ids: Optional[List[str]] = None,
+    quiet: bool = False,
+) -> Tuple[Dict, Dict, Dict]:
+    """
+    读取最近 N 天的所有标题（从存储后端，跨天合并）
+
+    Args:
+        storage_manager: 存储管理器实例
+        days: 聚合天数（如 7 表示最近 7 天，含今天）
+        current_platform_ids: 当前监控的平台 ID 列表（用于过滤）
+        quiet: 是否静默模式（不打印日志）
+
+    Returns:
+        Tuple[Dict, Dict, Dict]: (all_results, id_to_name, title_info)
+    """
+    all_results, final_id_to_name, title_info = read_range_titles_from_storage(
+        storage_manager, days=days, current_platform_ids=current_platform_ids
+    )
+
+    if not quiet:
+        if all_results:
+            total_count = sum(len(titles) for titles in all_results.values())
+            print(f"[存储] 已从存储后端读取最近 {days} 天共 {total_count} 条标题")
+        else:
+            print(f"[存储] 最近 {days} 天暂无数据")
 
     return all_results, final_id_to_name, title_info
 

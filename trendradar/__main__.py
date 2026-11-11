@@ -50,6 +50,12 @@ class NewsAnalyzer:
             "report_type": "全天汇总",
             "should_send_notification": True,
         },
+        "weekly": {
+            "mode_name": "整周汇总模式",
+            "description": "整周汇总模式（最近N天所有匹配新闻 + 新增新闻区域 + 按时推送）",
+            "report_type": "整周汇总",
+            "should_send_notification": True,
+        },
     }
 
     def __init__(self, config: Optional[Dict] = None):
@@ -154,6 +160,14 @@ class NewsAnalyzer:
     def _get_mode_strategy(self) -> Dict:
         """获取当前模式的策略配置"""
         return self.MODE_STRATEGIES.get(self.report_mode, self.MODE_STRATEGIES["daily"])
+
+    def _get_report_range_days(self) -> int:
+        """获取 weekly 模式的跨天聚合天数（默认 7 天，含今天）"""
+        try:
+            days = int(self.ctx.config.get("REPORT_RANGE_DAYS", 7) or 7)
+        except (TypeError, ValueError):
+            days = 7
+        return days if days >= 1 else 7
 
     def _has_notification_configured(self) -> bool:
         """检查是否配置了任何通知渠道"""
@@ -443,20 +457,34 @@ class NewsAnalyzer:
     def _load_analysis_data(
         self,
         quiet: bool = False,
+        days: Optional[int] = None,
     ) -> Optional[Tuple[Dict, Dict, Dict, Dict, List, List]]:
-        """统一的数据加载和预处理，使用当前监控平台列表过滤历史数据"""
+        """统一的数据加载和预处理，使用当前监控平台列表过滤历史数据
+
+        Args:
+            quiet: 是否静默模式（不打印日志）
+            days: 跨天聚合天数（>1 时读取最近 N 天合并数据，否则读取当天数据）
+        """
         try:
             # 获取当前配置的监控平台ID列表
             current_platform_ids = self.ctx.platform_ids
             if not quiet:
                 print(f"当前监控平台: {current_platform_ids}")
 
-            all_results, id_to_name, title_info = self.ctx.read_today_titles(
-                current_platform_ids, quiet=quiet
-            )
+            if days and days > 1:
+                # 跨天聚合模式（weekly）：读取最近 N 天合并数据
+                all_results, id_to_name, title_info = self.ctx.read_range_titles(
+                    days=days, platform_ids=current_platform_ids, quiet=quiet
+                )
+                empty_message = f"没有找到最近 {days} 天的数据"
+            else:
+                all_results, id_to_name, title_info = self.ctx.read_today_titles(
+                    current_platform_ids, quiet=quiet
+                )
+                empty_message = "没有找到当天的数据"
 
             if not all_results:
-                print("没有找到当天的数据")
+                print(empty_message)
                 return None
 
             total_titles = sum(len(titles) for titles in all_results.values())
@@ -1488,9 +1516,11 @@ class NewsAnalyzer:
             else:
                 print("❌ 严重错误：无法读取刚保存的数据文件")
                 raise RuntimeError("数据一致性检查失败：保存后立即读取失败")
-        elif self.report_mode == "daily":
+        elif self.report_mode in ("daily", "weekly"):
             # daily 模式：使用全天累计数据
-            analysis_data = self._load_analysis_data()
+            # weekly 模式：使用最近 N 天累计数据（跨天合并）
+            range_days = self._get_report_range_days() if self.report_mode == "weekly" else None
+            analysis_data = self._load_analysis_data(days=range_days)
             if analysis_data:
                 (
                     all_results,

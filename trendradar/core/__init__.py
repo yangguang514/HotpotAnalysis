@@ -15,6 +15,8 @@ from trendradar.core.scheduler import Scheduler, ResolvedSchedule
 from trendradar.core.data import (
     read_all_today_titles_from_storage,
     read_all_today_titles,
+    read_range_titles_from_storage,
+    read_range_titles,
     detect_latest_new_titles_from_storage,
     detect_latest_new_titles,
 )

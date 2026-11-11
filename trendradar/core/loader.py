@@ -76,6 +76,7 @@ def _load_report_config(config_data: Dict) -> Dict:
 
     return {
         "REPORT_MODE": report_config.get("mode", "daily"),
+        "REPORT_RANGE_DAYS": report_config.get("range_days", 7),
         "DISPLAY_MODE": report_config.get("display_mode", "keyword"),
         "RANK_THRESHOLD": report_config.get("rank_threshold", 10),
         "SORT_BY_POSITION_FIRST": sort_by_position_env if sort_by_position_env is not None else report_config.get("sort_by_position_first", False),

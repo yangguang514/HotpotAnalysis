@@ -153,10 +153,14 @@ rss:
 # 4. 报告模式
 # ===============================================================
 report:
-  mode: "current"                     # 报告模式（开启 schedule 后作为默认值，会被 timeline 时段覆盖）
+  mode: "weekly"                      # 报告模式（开启 schedule 后作为默认值，会被 timeline 时段覆盖）
+                                      # weekly = 最近N天汇总，跨天累计所有匹配新闻（天数见下方 range_days）
                                       # daily = 当日汇总，按时推送当天所有匹配新闻（会包含之前推过的）
                                       # current = 当前榜单，按时推送当前在榜的匹配新闻（持续在榜的每次都出现）
                                       # incremental = 增量监控，只推送新增内容，零重复（没有新增时不推送）
+
+  range_days: 7                       # weekly 模式的聚合天数（含今天；7=最近一周，30=最近一个月）
+                                      # 仅当 mode 为 "weekly" 时生效
 
   display_mode: "keyword"             # 分组维度
                                       # keyword = 按关键词分组显示

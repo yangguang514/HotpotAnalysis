@@ -1443,6 +1443,8 @@ def render_html_content(
         mode_display = "当前榜单"
     elif mode == "incremental":
         mode_display = "增量分析"
+    elif mode == "weekly":
+        mode_display = "整周汇总"
     else:
         mode_display = "全天汇总"
 

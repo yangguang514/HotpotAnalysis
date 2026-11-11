@@ -9,6 +9,7 @@ venv/
 
 # TrendRadar 运行产物（报告、数据库、RSS 缓存）
 output/
+index.html
 
 # 日志
 *.log
