@@ -33,7 +33,7 @@
     el.className = "toast" + (type ? " " + type : "");
     el.hidden = false;
     clearTimeout(el._timer);
-    el._timer = setTimeout(function () { el.hidden = true; type === "err" ? 6000 : 3000; });
+    el._timer = setTimeout(function () { el.hidden = true; }, type === "err" ? 6000 : 3000);
   }
 
   // ── API ──
