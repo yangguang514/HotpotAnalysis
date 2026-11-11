@@ -44,7 +44,7 @@
 |---|---|
 | `trendradar/web/__init__.py` | 包初始化 |
 | `trendradar/web/catalog.py` | 68 个平台目录 + 域名规则（供前端多选与安全校验） |
-| `trendradar/web/stores.py` | 存储抽象：`KVBackend`（Vercel KV/Upstash REST）与 `FileBackend`（本地文件），上层 `ConfigStore` / `DataStore` 接口一致 |
+| `trendradar/web/stores.py` | 存储抽象：`KVBackend`（Vercel KV/Upstash REST）、`FileBackend`（本地文件，Vercel 上落 `/tmp`）与 `MemoryBackend`（只读文件系统兜底），上层 `ConfigStore` / `DataStore` 接口一致 |
 | `trendradar/web/pipeline.py` | 业务管线：配置种子化、抓取合并、跨天报告聚合、定时槽位判定 |
 | `trendradar/web/wsgi.py` | WSGI 应用：REST API 路由、鉴权、静态资源、安全防护 |
 | `trendradar/web/__main__.py` | 本地开发服务器（`python -m trendradar.web`） |
@@ -230,7 +230,7 @@ ConfigStore / DataStore
 5. **部署**：首次导入会自动构建部署。之后每次 `git push` 到默认分支自动重新部署。
 6. **访问**：打开分配的 `https://<项目名>.vercel.app`，输入 `ADMIN_TOKEN` 进入仪表盘。
 
-> 未配置 KV 时的行为：自动回退到文件后端。Serverless 函数文件系统是临时的（同一次函数调用内可读写，冷启动后重置），**仅适合临时体验**，生产必须配 KV。
+> 未配置 KV 时的行为：自动回退到文件后端，数据目录为 `/tmp/trendradar_web_data`（Serverless 仅 `/tmp` 可写）。`/tmp` 在同一个函数实例内可读写，但**按实例独立、冷启动后重置**，仅适合临时体验；若目录创建失败会再降级为内存后端（`/api/status` 的存储徽标显示「⚠️ 临时存储」）。生产必须配 KV。
 
 ### 4.3 定时监控的两种触发方式
 
