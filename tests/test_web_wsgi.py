@@ -59,6 +59,30 @@ def main():
         status, _, _ = call_app("GET", "/api/unknown")
         check("未知 API 404", status == 404)
 
+        print("── /api/status 存储状态字段 ──")
+        import json as _json
+        status, _, body = call_app("GET", "/api/status")
+        check("status 200", status == 200)
+        if status == 200:
+            data = _json.loads(body)
+            check("backend 字段存在", data.get("backend") in ("kv", "file", "memory"), data.get("backend"))
+            check("persistent 字段存在", isinstance(data.get("persistent"), bool))
+        # VERCEL 环境下文件后端（/tmp）不标记为持久
+        import tempfile
+        tmp_dir = tempfile.mkdtemp(prefix="tr_wsgi_test_")
+        os.environ["VERCEL"] = "1"
+        os.environ["WEB_DATA_DIR"] = tmp_dir
+        try:
+            status, _, body = call_app("GET", "/api/status")
+            if status == 200:
+                data = _json.loads(body)
+                check("Vercel 上非 KV 存储 persistent=False", data.get("persistent") is False, data)
+        finally:
+            os.environ.pop("VERCEL", None)
+            os.environ.pop("WEB_DATA_DIR", None)
+            import shutil
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
         print("── 路径穿越防护 ──")
         status, _, body = call_app("GET", "/../app.py")
         check("/../app.py → 404", status == 404)

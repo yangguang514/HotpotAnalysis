@@ -356,7 +356,9 @@
       } else {
         backend.textContent = "💾 本地存储";
         backend.className = "badge";
-        backend.title = "配置与数据存于本地 web_data/ 目录";
+        backend.title = data.persistent === false
+          ? "临时存储：冷启动/重启后数据丢失，建议在 Vercel 控制台绑定 KV 持久化"
+          : "配置与数据存于本地 web_data/ 目录";
       }
 
       var auto = $("badge-auto");

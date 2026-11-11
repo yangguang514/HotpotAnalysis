@@ -258,9 +258,16 @@ def handle_status(environ: Dict, query: Dict) -> Tuple[bytes, int, List[Tuple[st
     )
     available_days = [d for d in dates if data_store.get_day(d)]
 
+    # 持久性判断：仅 KV 跨冷启动持久；Vercel 上文件后端落在 /tmp，同样不持久
+    on_vercel = bool(os.environ.get("VERCEL"))
+    persistent = data_store.backend_kind == "kv" or (
+        data_store.backend_kind == "file" and not on_vercel
+    )
+
     return _json_response({
         "ok": True,
         "backend": data_store.backend_kind,
+        "persistent": persistent,
         "server_time": now.isoformat(timespec="seconds"),
         "last_crawl": {
             "time": meta.get("last_crawl_time"),
