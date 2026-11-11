@@ -12,12 +12,15 @@ Web 端存储抽象层
 
 后端选择逻辑（自动）：
     存在环境变量 KV_REST_API_URL + KV_REST_API_TOKEN → Vercel KV
-    否则 → 文件存储（目录取 WEB_DATA_DIR，默认 web_data/）
+    否则 → 文件存储（目录取 WEB_DATA_DIR；Vercel 环境下默认
+        /tmp/trendradar_web_data，因为 Serverless 仅 /tmp 可写）
+    文件目录创建失败（只读文件系统等）→ 内存后端（仅保命，数据不持久化）
 
 所有存储值统一为 JSON 字符串，读写即 json.dumps / json.loads。
 """
 
 import json
+import logging
 import os
 import threading
 from datetime import datetime, timedelta
@@ -27,6 +30,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 from trendradar.utils.time import DEFAULT_TIMEZONE
+
+logger = logging.getLogger(__name__)
 
 # ── 键位设计（KV 与文件后端共用同一套键名） ────────────────────────────
 # 统一加 trendradar: 命名空间前缀：KV 实例可能被多个项目共用，避免键名碰撞
@@ -103,6 +108,50 @@ def _kv_backend_from_env() -> Optional[KVBackend]:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# 内存后端（最后兜底）
+# ══════════════════════════════════════════════════════════════════════
+
+class MemoryBackend:
+    """进程内内存后端：文件系统不可用时的兜底，数据不持久化
+
+    仅用于保证服务可用（配置读取、报告生成等不因存储故障 500），
+    进程重启 / 冷启动后数据丢失。Vercel 上需要持久化请绑定 KV。
+    """
+
+    def __init__(self):
+        self._data: Dict[str, str] = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> Optional[str]:
+        with self._lock:
+            return self._data.get(key)
+
+    def set(self, key: str, value: str, ex: Optional[int] = None) -> None:
+        with self._lock:
+            self._data[key] = value
+
+    def delete(self, key: str) -> None:
+        with self._lock:
+            self._data.pop(key, None)
+
+
+def _default_data_dir() -> str:
+    """文件后端数据目录解析：
+    1. 显式设置 WEB_DATA_DIR 时优先
+    2. Vercel 环境（VERCEL=1）→ /tmp/trendradar_web_data
+       Serverless 函数仅 /tmp 可写；每个函数实例独立，冷启动后丢失，
+       需要持久化请在 Vercel 控制台绑定 KV（自动注入 KV_REST_API_URL/TOKEN）
+    3. 本地开发 → web_data/
+    """
+    explicit = os.environ.get("WEB_DATA_DIR")
+    if explicit:
+        return explicit
+    if os.environ.get("VERCEL"):
+        return "/tmp/trendradar_web_data"
+    return "web_data"
+
+
+# ══════════════════════════════════════════════════════════════════════
 # 文件后端（本地开发）
 # ══════════════════════════════════════════════════════════════════════
 
@@ -149,6 +198,25 @@ class FileBackend:
             path.unlink()
 
 
+def _resolve_backend():
+    """按优先级解析存储后端，返回 (backend, kind)
+
+    kind ∈ {"kv", "file", "memory"}，供 /api/status 向前端展示存储状态。
+    """
+    kv = _kv_backend_from_env()
+    if kv is not None:
+        return kv, "kv"
+    data_dir = _default_data_dir()
+    try:
+        return FileBackend(data_dir), "file"
+    except OSError as exc:
+        logger.warning(
+            "文件后端初始化失败（%s 不可写: %s），降级为内存后端（数据不持久化）",
+            data_dir, exc,
+        )
+        return MemoryBackend(), "memory"
+
+
 # ══════════════════════════════════════════════════════════════════════
 # 配置存储
 # ══════════════════════════════════════════════════════════════════════
@@ -183,10 +251,12 @@ class ConfigStore:
     """Web 配置存储（KV 或文件后端）"""
 
     def __init__(self, backend=None):
-        self.backend = backend or _kv_backend_from_env() or FileBackend(
-            os.environ.get("WEB_DATA_DIR", "web_data")
-        )
-        self.is_kv = isinstance(self.backend, KVBackend)
+        if backend is not None:
+            self.backend = backend
+            self.backend_kind = "kv" if isinstance(backend, KVBackend) else "custom"
+        else:
+            self.backend, self.backend_kind = _resolve_backend()
+        self.is_kv = self.backend_kind == "kv"
 
     def get(self) -> Optional[Dict]:
         raw = self.backend.get(KEY_CONFIG)
@@ -230,10 +300,12 @@ class DataStore:
     """抓取数据 / 元信息 / 报告缓存 / 定时槽位存储"""
 
     def __init__(self, backend=None):
-        self.backend = backend or _kv_backend_from_env() or FileBackend(
-            os.environ.get("WEB_DATA_DIR", "web_data")
-        )
-        self.is_kv = isinstance(self.backend, KVBackend)
+        if backend is not None:
+            self.backend = backend
+            self.backend_kind = "kv" if isinstance(backend, KVBackend) else "custom"
+        else:
+            self.backend, self.backend_kind = _resolve_backend()
+        self.is_kv = self.backend_kind == "kv"
 
     # ── 按天数据 ────────────────────────────────────────────────────
 

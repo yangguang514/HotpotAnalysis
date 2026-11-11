@@ -260,7 +260,7 @@ def handle_status(environ: Dict, query: Dict) -> Tuple[bytes, int, List[Tuple[st
 
     return _json_response({
         "ok": True,
-        "backend": "kv" if data_store.is_kv else "file",
+        "backend": data_store.backend_kind,
         "server_time": now.isoformat(timespec="seconds"),
         "last_crawl": {
             "time": meta.get("last_crawl_time"),

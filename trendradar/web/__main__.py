@@ -30,12 +30,13 @@ def main() -> None:
         port = 8765
 
     # 延迟导入，避免 --help 之类场景加载整个应用
+    from trendradar.web.stores import _default_data_dir
     from trendradar.web.wsgi import app
 
     print("=" * 56)
     print(" TrendRadar Web 本地开发服务器")
     print(f" 地址:     http://{host}:{port}")
-    print(f" 数据目录: {os.environ.get('WEB_DATA_DIR', 'web_data')}")
+    print(f" 数据目录: {_default_data_dir()}")
     print(" 停止:     Ctrl+C")
     print("=" * 56)
 

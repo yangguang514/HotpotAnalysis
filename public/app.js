@@ -345,8 +345,19 @@
     api("/api/status").then(function (data) {
       state.status = data;
       var backend = $("badge-backend");
-      backend.textContent = data.backend === "kv" ? "☁️ Vercel KV" : "💾 本地存储";
-      backend.className = "badge" + (data.backend === "kv" ? " ok" : "");
+      if (data.backend === "kv") {
+        backend.textContent = "☁️ Vercel KV";
+        backend.className = "badge ok";
+        backend.title = "配置与数据持久化存储（Vercel KV）";
+      } else if (data.backend === "memory") {
+        backend.textContent = "⚠️ 临时存储";
+        backend.className = "badge warn";
+        backend.title = "存储不可用，数据仅存内存，冷启动后丢失；请在 Vercel 控制台绑定 KV";
+      } else {
+        backend.textContent = "💾 本地存储";
+        backend.className = "badge";
+        backend.title = "配置与数据存于本地 web_data/ 目录";
+      }
 
       var auto = $("badge-auto");
       if (data.schedule.enabled) {
